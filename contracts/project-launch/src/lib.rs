@@ -1,6 +1,10 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, token::TokenClient, Address, Bytes, Env};
+mod rwa_metadata;
+
+use soroban_sdk::{
+    contract, contractimpl, contracttype, token::TokenClient, Address, Bytes, Env, String,
+};
 
 use shared::{
     constants::{
@@ -10,12 +14,15 @@ use shared::{
     errors::Error,
     events::{
         CONTRACT_PAUSED, CONTRACT_RESUMED, CONTRIBUTION_MADE, PROJECT_CREATED, PROJECT_FAILED,
-        REFUND_ISSUED, UPGRADE_CANCELLED, UPGRADE_EXECUTED, UPGRADE_SCHEDULED,
+        REFUND_ISSUED, RWA_METADATA_UPDATED, UPGRADE_CANCELLED, UPGRADE_EXECUTED,
+        UPGRADE_SCHEDULED,
     },
     types::{Jurisdiction, PauseState, PendingUpgrade},
     utils::verify_future_timestamp,
 };
 use soroban_sdk::BytesN;
+
+use crate::rwa_metadata::{read_rwa_metadata_cid, write_rwa_metadata_cid};
 
 // Interface for IdentityContract
 #[soroban_sdk::contractclient(name = "IdentityContractClient")]
@@ -63,6 +70,7 @@ pub enum DataKey {
     ProjectJurisdictions = 7, // (DataKey::ProjectJurisdictions, project_id) -> Vec<Jurisdiction>
     PauseState = 8,
     PendingUpgrade = 9,
+    RwaMetadataCid = 10, // (DataKey::RwaMetadataCid, project_id) -> String
 }
 
 #[contract]
@@ -121,7 +129,7 @@ impl ProjectLaunch {
         let current_time = env.ledger().timestamp();
         let duration = deadline.saturating_sub(current_time);
 
-        if duration < MIN_PROJECT_DURATION || duration > MAX_PROJECT_DURATION {
+        if !(MIN_PROJECT_DURATION..=MAX_PROJECT_DURATION).contains(&duration) {
             return Err(Error::InvInput);
         }
 
@@ -272,6 +280,28 @@ impl ProjectLaunch {
             .instance()
             .get(&(DataKey::Project, project_id))
             .ok_or(Error::NotFound)
+    }
+
+    /// Store or replace the root IPFS CID for a project's legal and audit bundle.
+    ///
+    /// Only the project creator may update this pointer. The on-chain value stores
+    /// just the current root CID so related documents can be appended off-chain
+    /// without increasing contract storage usage.
+    pub fn update_rwa_metadata(
+        env: Env,
+        project_id: u64,
+        admin: Address,
+        cid: String,
+    ) -> Result<(), Error> {
+        write_rwa_metadata_cid(&env, project_id, &admin, &cid)?;
+        env.events()
+            .publish((RWA_METADATA_UPDATED,), (project_id, admin, cid));
+        Ok(())
+    }
+
+    /// Return the current root IPFS CID for a project's RWA legal metadata.
+    pub fn get_rwa_metadata(env: Env, project_id: u64) -> Option<String> {
+        read_rwa_metadata_cid(&env, project_id)
     }
 
     /// Get individual contribution amount for a user
@@ -588,7 +618,7 @@ mod tests {
     use super::*;
     use soroban_sdk::{
         testutils::{Address as TestAddress, Ledger},
-        token, Address, Bytes,
+        token, Address, Bytes, String,
     };
 
     fn create_token_contract<'a>(
@@ -745,6 +775,83 @@ mod tests {
         env.ledger().set_timestamp(deadline + 1);
         let result = client.try_contribute(&project_id, &contributor, &MIN_CONTRIBUTION);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_update_rwa_metadata_by_project_creator() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let creator = Address::generate(&env);
+        let token = Address::generate(&env);
+        let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
+
+        client.mock_all_auths().initialize(&admin);
+
+        env.ledger().set_timestamp(1000000);
+        let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
+        let project_id = client.mock_all_auths().create_project(
+            &creator,
+            &MIN_FUNDING_GOAL,
+            &deadline,
+            &token,
+            &metadata_hash,
+            &None,
+        );
+
+        assert_eq!(client.get_rwa_metadata(&project_id), None);
+
+        let initial_cid = String::from_str(&env, "bafybeigdyrzt5legalrootcid");
+        client
+            .mock_all_auths()
+            .update_rwa_metadata(&project_id, &creator, &initial_cid);
+
+        assert_eq!(client.get_rwa_metadata(&project_id), Some(initial_cid));
+
+        let updated_cid = String::from_str(&env, "bafybeih4auditbundleupdatedroot");
+        client
+            .mock_all_auths()
+            .update_rwa_metadata(&project_id, &creator, &updated_cid);
+
+        assert_eq!(client.get_rwa_metadata(&project_id), Some(updated_cid));
+    }
+
+    #[test]
+    fn test_update_rwa_metadata_rejects_non_creator() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, ProjectLaunch);
+        let client = ProjectLaunchClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let creator = Address::generate(&env);
+        let intruder = Address::generate(&env);
+        let token = Address::generate(&env);
+        let metadata_hash = Bytes::from_slice(&env, b"QmHash123");
+
+        client.mock_all_auths().initialize(&admin);
+
+        env.ledger().set_timestamp(1000000);
+        let deadline = 1000000 + MIN_PROJECT_DURATION + 86400;
+        let project_id = client.mock_all_auths().create_project(
+            &creator,
+            &MIN_FUNDING_GOAL,
+            &deadline,
+            &token,
+            &metadata_hash,
+            &None,
+        );
+
+        let cid = String::from_str(&env, "bafybeiforbiddenrootcid");
+        let result = client
+            .mock_all_auths()
+            .try_update_rwa_metadata(&project_id, &intruder, &cid);
+
+        // Soroban `try_` clients can surface contract failures either as an
+        // invoke error (outer `Err`) or as a conversion failure (inner `Err`).
+        assert!(result.is_err() || matches!(result, Ok(Err(_))));
+        assert_eq!(client.get_rwa_metadata(&project_id), None);
     }
 
     #[test]
