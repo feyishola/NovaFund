@@ -14,6 +14,8 @@ import { BridgeModule } from './bridge/bridge.module';
 import { YieldModule } from './yield/yield.module';
 import { RelayModule } from './relay/relay.module';
 import { VerificationModule } from './verification/verification.module';
+import { RedisModule } from './redis/redis.module';
+import { ProjectModule } from './project/project.module';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { VerificationModule } from './verification/verification.module';
       envFilePath: '.env',
       validate: validateEnv,
     }),
+    RedisModule,
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
@@ -35,6 +38,7 @@ import { VerificationModule } from './verification/verification.module';
     YieldModule,
     RelayModule,
     VerificationModule,
+    ProjectModule,
   ],
   controllers: [AppController, UserController],
   providers: [AppService],

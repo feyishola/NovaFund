@@ -39,6 +39,18 @@ class EnvironmentVariables {
   REDIS_PORT: number;
 
   @IsString()
+  REDIS_PASSWORD: string;
+
+  @IsNumber()
+  REDIS_DB: number;
+
+  @IsNumber()
+  REDIS_DEFAULT_TTL: number;
+
+  @IsNumber()
+  REDIS_MAX_KEYS: number;
+
+  @IsString()
   JWT_SECRET: string;
 
   @IsNumber()
