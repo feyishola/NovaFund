@@ -17,6 +17,7 @@ members = [
     "oracle-network",
     "auto-invest-pool",
     "base-token",
+    "milestone-oracle",
 ]
 
 [workspace.package]
