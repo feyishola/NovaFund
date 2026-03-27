@@ -1165,15 +1165,6 @@ impl EscrowContract {
         env.events()
             .publish((DISPUTE_RESOLVED,), (dispute_id, resolution));
 
-        // Enforce immediately if max appeals reached
-        if dispute.appeal_count >= shared::constants::MAX_APPEALS as u32 {
-            dispute.status = DisputeStatus::FinalResolved;
-            set_dispute(&env, dispute_id, &dispute);
-            Self::enforce_resolution(&env, &dispute, &resolution)?;
-            env.events()
-                .publish((APPEAL_RESOLVED,), (dispute_id, resolution));
-        }
-
         Ok(())
     }
 
@@ -1197,7 +1188,21 @@ impl EscrowContract {
         }
 
         let current_time = env.ledger().timestamp();
-        if current_time <= dispute.created_at + shared::constants::APPEAL_WINDOW_PERIOD {
+        // Dispute resolution time-lock:
+        // - While appeals remain available, wait for the appeal window to elapse (and also satisfy the minimum lock).
+        // - Once max appeals are exhausted, enforcements still must wait for the resolution time-lock.
+        //
+        // `created_at` is reset in `tally_votes` and marks the start of these windows.
+        let required_delay = if dispute.appeal_count >= shared::constants::MAX_APPEALS as u32 {
+            shared::constants::RESOLUTION_TIME_LOCK
+        } else {
+            core::cmp::max(
+                shared::constants::RESOLUTION_TIME_LOCK,
+                shared::constants::APPEAL_WINDOW_PERIOD,
+            )
+        };
+
+        if current_time <= dispute.created_at + required_delay {
             return Err(Error::AppealWinCl); // Reusing for window still open
         }
 
