@@ -1,4 +1,5 @@
 import { Resolver, Query, Args, Int } from '@nestjs/graphql';
+import { Throttle } from '@nestjs/throttler';
 import { ProjectService } from './project.service';
 import { Project } from './dto/project.dto';
 import { ProjectList } from './dto/project-list.dto';
@@ -17,6 +18,7 @@ export class ProjectResolver {
     return this.projectService.findByContractId(contractId);
   }
 
+  @Throttle({ aggregate: { ttl: 60_000, limit: 10 } })
   @Query(() => ProjectList, { name: 'projects' })
   async getProjects(
     @Args('skip', { type: () => Int, nullable: true }) skip?: number,

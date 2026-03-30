@@ -17,6 +17,7 @@ import { VerificationModule } from './verification/verification.module';
 import { RedisModule } from './redis/redis.module';
 import { ProjectModule } from './project/project.module';
 import { StellarModule } from './stellar/stellar.module';
+import { GraphQLRateLimitModule } from './graphql/graphql-rate-limit.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { StellarModule } from './stellar/stellar.module';
       autoSchemaFile: true,
       playground: true,
     }),
+    GraphQLRateLimitModule,
     ReputationModule,
     DatabaseModule,
     IndexerModule,

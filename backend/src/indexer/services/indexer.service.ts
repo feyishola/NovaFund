@@ -5,6 +5,7 @@ import { SorobanRpc } from '@stellar/stellar-sdk';
 import { PrismaService } from '../../prisma.service';
 import { LedgerTrackerService } from './ledger-tracker.service';
 import { EventHandlerService } from './event-handler.service';
+import { DlqService } from './dlq.service';
 import { RpcFallbackService } from '../../stellar/rpc-fallback.service';
 import { SorobanEvent, ParsedContractEvent, ContractEventType } from '../types/event-types';
 import { LedgerInfo } from '../types/ledger.types';
@@ -31,6 +32,7 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly ledgerTracker: LedgerTrackerService,
     private readonly eventHandler: EventHandlerService,
+    private readonly dlqService: DlqService,
     private readonly rpcFallbackService: RpcFallbackService,
   ) {
     // Initialize configuration
@@ -184,13 +186,8 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
         } catch (error) {
           errorCount++;
           this.logger.error(`Failed to process event ${event.id}: ${error.message}`);
-
-          // Continue processing other events even if one fails
-          // But log the error for monitoring
-          await this.ledgerTracker.logError(`Event processing failed: ${event.id}`, {
-            eventId: event.id,
-            error: error.message,
-          });
+          // Send to DLQ and advance cursor — prevents a single bad event from blocking the loop
+          await this.dlqService.push(event, error);
         }
       }
 

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -6,6 +7,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  Sentry.init({
+    dsn: configService.get<string>('SENTRY_DSN'),
+    environment: configService.get<string>('NODE_ENV', 'development'),
+  });
 
   // Global validation pipe
   app.useGlobalPipes(

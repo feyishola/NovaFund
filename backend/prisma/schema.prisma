@@ -270,6 +270,24 @@ model MintedToken {
   @@map("minted_tokens")
 }
 
+model DlqEvent {
+  id           String    @id @default(cuid())
+  eventId      String    @unique @map("event_id")
+  contractId   String    @map("contract_id")
+  ledgerSeq    Int       @map("ledger_seq")
+  rawPayload   Json      @map("raw_payload")
+  errorMessage String    @map("error_message")
+  errorStack   String?   @map("error_stack")
+  retryCount   Int       @default(0) @map("retry_count")
+  resolvedAt   DateTime? @map("resolved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([resolvedAt])
+  @@index([ledgerSeq])
+  @@map("dlq_events")
+}
+
 model YieldEvent {
   id        String   @id @default(cuid())
   escrowId  String   @map("escrow_id")
