@@ -62,7 +62,7 @@ mod tests {
         let pool_id = ctx.contract.create_pool(&name, &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Initial Deposit
         ctx.contract.process_deposits(&pool_id);
@@ -83,9 +83,9 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "Multi"), &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Monthly);
+            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Monthly, &false);
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_2, &500, &SubscriptionPeriod::Monthly);
+            .subscribe(&pool_id, &ctx.user_2, &500, &SubscriptionPeriod::Monthly, &false);
 
         ctx.contract.process_deposits(&pool_id);
 
@@ -103,7 +103,7 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "Strict"), &ctx.token.address);
         // This should panic because 50 < MIN_SUBSCRIPTION (100)
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &50, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &50, &SubscriptionPeriod::Weekly, &false);
     }
 
     #[test]
@@ -114,7 +114,7 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "Withdraw"), &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &2000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &2000, &SubscriptionPeriod::Weekly, &false);
         ctx.contract.process_deposits(&pool_id);
 
         // Withdraw 1000
@@ -135,7 +135,7 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Process first payment
         ctx.contract.process_deposits(&pool_id);
@@ -164,7 +164,7 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         ctx.contract.cancel_subscription(&pool_id, &ctx.user_1);
         // Should panic - already cancelled
@@ -182,7 +182,7 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Weekly, &false);
 
         // Process initial payment
         ctx.contract.process_deposits(&pool_id);
@@ -222,7 +222,7 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Weekly, &false);
 
         ctx.contract.cancel_subscription(&pool_id, &ctx.user_1);
         // Should panic - cannot modify cancelled subscription
@@ -244,7 +244,7 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &500, &SubscriptionPeriod::Weekly, &false);
 
         // Should panic - amount below minimum
         ctx.contract
@@ -261,7 +261,7 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "PauseTest"), &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Process first payment
         ctx.contract.process_deposits(&pool_id);
@@ -297,7 +297,7 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "PauseTest"), &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         ctx.contract.pause_subscription(&pool_id, &ctx.user_1);
         // Should panic - already paused
@@ -314,7 +314,7 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Should panic - already active
         ctx.contract.resume_subscription(&pool_id, &ctx.user_1);
@@ -332,7 +332,7 @@ mod tests {
         // Subscribe with user who has no tokens (balance = 0)
         let poor_user = Address::generate(&ctx.env);
         ctx.contract
-            .subscribe(&pool_id, &poor_user, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &poor_user, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Process deposit - should fail due to insufficient balance
         ctx.contract.process_deposits(&pool_id);
@@ -355,7 +355,7 @@ mod tests {
         let limited_user = Address::generate(&ctx.env);
         ctx.token_admin.mint(&limited_user, &1000);
         ctx.contract
-            .subscribe(&pool_id, &limited_user, &500, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &limited_user, &500, &SubscriptionPeriod::Weekly, &false);
 
         // First payment succeeds
         ctx.contract.process_deposits(&pool_id);
@@ -395,7 +395,7 @@ mod tests {
         // Subscribe with user who has no tokens
         let poor_user = Address::generate(&ctx.env);
         ctx.contract
-            .subscribe(&pool_id, &poor_user, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &poor_user, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Process deposits 4 times (MAX_PAYMENT_FAILURES = 3)
         // After 3 failures, the 4th attempt will trigger auto-cancellation
@@ -429,11 +429,11 @@ mod tests {
 
         // Setup: user_1 active, user_2 cancelled, user_3 active
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_2, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_2, &1000, &SubscriptionPeriod::Weekly, &false);
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_3, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_3, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Cancel user_2
         ctx.contract.cancel_subscription(&pool_id, &ctx.user_2);
@@ -459,9 +459,9 @@ mod tests {
         );
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_2, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_2, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Pause user_2
         ctx.contract.pause_subscription(&pool_id, &ctx.user_2);
@@ -482,7 +482,7 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "StateTest"), &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Initial state: Active
         let sub = ctx.contract.get_subscription(&pool_id, &ctx.user_1);
@@ -513,7 +513,7 @@ mod tests {
 
         ctx.env.ledger().set_timestamp(1000);
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Weekly, &false);
 
         // Initial next_payment should be current time
         let sub = ctx.contract.get_subscription(&pool_id, &ctx.user_1);
@@ -539,7 +539,7 @@ mod tests {
             .create_pool(&String::from_str(&ctx.env, "NotDue"), &ctx.token.address);
 
         ctx.contract
-            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Monthly);
+            .subscribe(&pool_id, &ctx.user_1, &1000, &SubscriptionPeriod::Monthly, &false);
 
         // Process first payment
         ctx.contract.process_deposits(&pool_id);
